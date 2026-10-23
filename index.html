@@ -4,17 +4,205 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Higgsfield Prompt</title>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@13.2.0/lib/browser/math.js"></script>
   <style>
+    :root {
+      --bg: #0d0b1f;
+      --blob-1: #7c3aed;
+      --blob-2: #06b6d4;
+      --blob-3: #ec4899;
+      --text: #ffffff;
+      --muted: rgba(255, 255, 255, 0.65);
+      --watermark: rgba(255, 255, 255, 0.06);
+      --glass: rgba(255, 255, 255, 0.10);
+      --glass-border: rgba(255, 255, 255, 0.25);
+      --glass-strong: rgba(255, 255, 255, 0.18);
+      --error: #fda4af;
+    }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #eef0ff;
+        --blob-1: #a78bfa;
+        --blob-2: #67e8f9;
+        --blob-3: #f9a8d4;
+        --text: #1a1530;
+        --muted: rgba(26, 21, 48, 0.6);
+        --watermark: rgba(26, 21, 48, 0.06);
+        --glass: rgba(255, 255, 255, 0.35);
+        --glass-border: rgba(255, 255, 255, 0.7);
+        --glass-strong: rgba(255, 255, 255, 0.55);
+        --error: #be123c;
+      }
+    }
+
+    * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body {
-      display: flex; align-items: center; justify-content: center;
-      background: #fff; color: #111;
+      min-height: 100%;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 48px 16px;
     }
-    h1 { font-size: clamp(2rem, 8vw, 5rem); font-weight: 600; margin: 0 16px; text-align: center; }
+
+    /* colorful blobs that the glass blurs */
+    .blob {
+      position: fixed; border-radius: 50%; filter: blur(60px); opacity: 0.7; z-index: -2;
+      animation: float 18s ease-in-out infinite alternate;
+    }
+    .blob.b1 { width: 420px; height: 420px; background: var(--blob-1); top: -80px; left: -100px; }
+    .blob.b2 { width: 360px; height: 360px; background: var(--blob-2); bottom: -60px; right: -80px; animation-delay: -6s; }
+    .blob.b3 { width: 280px; height: 280px; background: var(--blob-3); top: 45%; left: 55%; animation-delay: -12s; }
+    @keyframes float {
+      to { transform: translate(60px, -40px) scale(1.15); }
+    }
+
+    /* "higgsfield prompt" everywhere */
+    .watermark {
+      position: fixed; inset: -50%; z-index: -1; pointer-events: none; user-select: none;
+      transform: rotate(-18deg);
+      display: flex; flex-direction: column; gap: 18px;
+      font-size: 28px; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap;
+      color: var(--watermark);
+    }
+    .watermark div { animation: slide 40s linear infinite; }
+    .watermark div:nth-child(even) { animation-direction: reverse; }
+    @keyframes slide { to { transform: translateX(-25%); } }
+
+    h1 {
+      font-size: clamp(2.2rem, 9vw, 4.5rem); font-weight: 700; margin: 0 0 28px;
+      text-align: center; letter-spacing: -0.02em;
+    }
+
+    .glass {
+      width: 100%; max-width: 560px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+      padding: 20px;
+    }
+
+    form { display: flex; gap: 10px; }
+    input {
+      flex: 1; min-width: 0;
+      font: inherit; font-size: 1.15rem; color: var(--text);
+      background: var(--glass-strong);
+      border: 1px solid var(--glass-border); border-radius: 14px;
+      padding: 14px 16px; outline: none;
+    }
+    input::placeholder { color: var(--muted); }
+    input:focus { border-color: var(--text); }
+    button {
+      font: inherit; font-weight: 600; color: var(--text); cursor: pointer;
+      background: var(--glass-strong);
+      border: 1px solid var(--glass-border); border-radius: 14px;
+      padding: 0 20px;
+    }
+    button:hover { background: var(--glass-border); }
+
+    .result {
+      min-height: 1.5em; margin-top: 16px; padding: 0 4px;
+      font-size: 1.4rem; font-weight: 600; word-break: break-word;
+    }
+    .result:empty { display: none; }
+    .result.error { color: var(--error); font-size: 1rem; font-weight: 500; }
+    .hint { margin: 14px 4px 0; font-size: 0.85rem; color: var(--muted); }
+
+    footer { margin-top: 28px; font-size: 0.9rem; font-weight: 600; color: var(--muted); }
   </style>
 </head>
 <body>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="watermark" id="watermark" aria-hidden="true"></div>
+
   <h1>higgsfield prompt</h1>
+
+  <main class="glass">
+    <form id="form" autocomplete="off">
+      <input id="problem" placeholder="enter your math problem" aria-label="Math problem" autofocus>
+      <button type="submit">Solve</button>
+    </form>
+    <div class="result" id="result" aria-live="polite"></div>
+    <p class="hint">Try <code>12 * (3 + 4)</code>, <code>sqrt(144)</code>, <code>2x + 3 = 11</code> or <code>x^2 = 16</code></p>
+  </main>
+
+  <footer>higgsfield prompt</footer>
+
+  <script>
+    // fill the background with "higgsfield prompt"
+    const line = 'higgsfield prompt · '.repeat(30);
+    document.getElementById('watermark').innerHTML =
+      Array.from({ length: 60 }, () => `<div>${line}</div>`).join('');
+
+    const form = document.getElementById('form');
+    const input = document.getElementById('problem');
+    const result = document.getElementById('result');
+
+    const fmt = (v) => math.format(v, { precision: 12 });
+
+    // numeric root finding for one-variable equations like "2x + 3 = 11"
+    function solveEquation(text) {
+      const [lhs, rhs] = text.split('=');
+      const node = math.parse(`(${lhs}) - (${rhs})`);
+      const vars = [...new Set(
+        node.filter((n) => n.isSymbolNode && !(n.name in math)).map((n) => n.name)
+      )];
+      if (vars.length !== 1) throw new Error('Use exactly one variable, like x');
+      const name = vars[0];
+      const f = node.compile();
+      const at = (x) => {
+        const y = f.evaluate({ [name]: x });
+        return typeof y === 'number' ? y : NaN;
+      };
+
+      const xs = [];
+      for (let i = -2000; i <= 2000; i++) xs.push(i / 20);
+      for (let i = 101; i <= 10000; i++) { xs.push(i); xs.push(-i); }
+      xs.sort((a, b) => a - b);
+
+      const roots = [];
+      const add = (r) => {
+        if (Math.abs(at(r)) > 1e-6) return;
+        r = Math.round(r * 1e10) / 1e10;
+        if (!roots.some((s) => Math.abs(s - r) < 1e-7)) roots.push(r);
+      };
+      for (let i = 0; i < xs.length - 1; i++) {
+        let a = xs[i], b = xs[i + 1], fa = at(a), fb = at(b);
+        if (fa === 0) { add(a); continue; }
+        if (!isFinite(fa) || !isFinite(fb) || fa * fb > 0) continue;
+        for (let k = 0; k < 80; k++) {
+          const m = (a + b) / 2, fm = at(m);
+          if (fa * fm <= 0) { b = m; } else { a = m; fa = fm; }
+        }
+        add((a + b) / 2);
+      }
+      if (!roots.length) throw new Error('No real solution found');
+      return roots.map((r) => `${name} = ${fmt(r)}`).join(',  ');
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      result.className = 'result';
+      if (!text) { result.textContent = ''; return; }
+      try {
+        const eqCount = (text.match(/=/g) || []).length;
+        if (eqCount > 1) throw new Error('Only one = sign, please');
+        result.textContent = eqCount === 1
+          ? solveEquation(text)
+          : `= ${fmt(math.evaluate(text))}`;
+      } catch (err) {
+        result.className = 'result error';
+        result.textContent = `Couldn't solve that: ${err.message}`;
+      }
+    });
+  </script>
 </body>
 </html>
