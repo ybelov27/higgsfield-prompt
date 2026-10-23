@@ -4,7 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Higgsfield Prompt</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/mathjs@13.2.0/lib/browser/math.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="solver.js"></script>
   <style>
     :root {
       --bg: #0b0b10;
@@ -17,6 +23,8 @@
       --shadow: rgba(0, 0, 0, 0.45);
       --field: rgba(255, 255, 255, 0.06);
       --rim: rgba(255, 255, 255, 0.55);
+      --lift: 1.06;
+      --row: rgba(255, 255, 255, 0.04);
       --error: #fda4af;
     }
     @media (prefers-color-scheme: light) {
@@ -31,17 +39,20 @@
         --shadow: rgba(30, 30, 60, 0.18);
         --field: rgba(17, 17, 24, 0.07);
         --rim: rgba(255, 255, 255, 0.95);
+        --lift: 1;
+        --row: rgba(17, 17, 24, 0.035);
         --error: #be123c;
       }
     }
 
     * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
+    html { height: 100%; }
     body {
+      min-height: 100%; margin: 0;
       overflow-x: hidden;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       display: flex; align-items: center; justify-content: center;
       padding: 16px;
     }
@@ -59,7 +70,7 @@
     @keyframes slide { to { transform: translateX(-25%); } }
 
     /* the one bubble */
-    .bubble { position: relative; width: 100%; max-width: 560px; }
+    .bubble { position: relative; width: 100%; max-width: 600px; }
     .glass {
       position: absolute; inset: 0; border-radius: 44px;
       /* faint frosted grain over the tint */
@@ -74,7 +85,7 @@
         inset 0 0 36px var(--glow);
       will-change: transform;
     }
-    .glass.liquid { backdrop-filter: blur(3px) url(#liquid) saturate(180%) brightness(1.06); }
+    .glass.liquid { backdrop-filter: blur(3px) url(#liquid) saturate(180%) brightness(var(--lift)); }
     /* a soft rim that catches light near the pointer and on the top-left */
     .glass::before {
       content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
@@ -96,7 +107,7 @@
 
     .content { position: relative; padding: 34px 28px 26px; text-align: center; }
     h1 {
-      font-size: clamp(2rem, 8vw, 3.2rem); font-weight: 700; letter-spacing: -0.03em;
+      font-size: clamp(2rem, 8vw, 3.2rem); font-weight: 800; letter-spacing: -0.045em;
       margin: 0 0 22px;
     }
     form { display: flex; gap: 8px; }
@@ -104,8 +115,8 @@
       flex: 1; min-width: 0;
       font: inherit; font-size: 1.15rem; color: var(--text); text-align: center;
       background: var(--field); border: 0; border-radius: 999px;
-      backdrop-filter: blur(10px) brightness(1.08);
-      -webkit-backdrop-filter: blur(10px) brightness(1.08);
+      backdrop-filter: blur(10px) brightness(var(--lift));
+      -webkit-backdrop-filter: blur(10px) brightness(var(--lift));
       box-shadow: var(--pill);
       padding: 15px 20px; outline: none;
       transition: box-shadow 0.25s;
@@ -116,8 +127,8 @@
       flex: none; width: 52px; height: 52px; border: 0; border-radius: 50%; cursor: pointer;
       font-size: 1.3rem; font-weight: 600; color: var(--text);
       background: var(--field); box-shadow: var(--pill);
-      backdrop-filter: blur(10px) brightness(1.08);
-      -webkit-backdrop-filter: blur(10px) brightness(1.08);
+      backdrop-filter: blur(10px) brightness(var(--lift));
+      -webkit-backdrop-filter: blur(10px) brightness(var(--lift));
       transition: transform 0.25s cubic-bezier(.3, 1.6, .5, 1);
     }
     button:hover { transform: scale(1.1); }
@@ -139,19 +150,46 @@
       box-shadow: 0 12px 30px var(--shadow), inset 0 0 8px var(--glow), inset 0 1px 1px var(--rim);
       opacity: 0; will-change: transform, opacity;
     }
-    .drop.liquid { backdrop-filter: url(#dropLens) saturate(170%) brightness(1.08); }
+    .drop.liquid { backdrop-filter: url(#dropLens) saturate(170%) brightness(var(--lift)); }
     .drop::after {
       content: ""; position: absolute; inset: 0; border-radius: 50%;
       background: radial-gradient(circle 26px at 32% 26%, var(--shine), transparent 70%);
     }
     @media (hover: none) { .drop { display: none; } }
-    .result { margin-top: 18px; font-size: 1.4rem; font-weight: 600; word-break: break-word; }
+    .result { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
     .result:empty { display: none; }
-    .result.error { color: var(--error); font-size: 1rem; font-weight: 500; }
-    .hint { margin: 16px 0 0; font-size: 0.8rem; color: var(--muted); }
+    .problem {
+      text-align: center; font-size: 1.35rem; padding: 4px 0 6px;
+      overflow-x: auto; overflow-y: hidden;
+    }
+    .row {
+      display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 12px;
+      padding: 12px 16px; border-radius: 18px; background: var(--row);
+      animation: rise 0.45s cubic-bezier(.2, .8, .2, 1) both;
+    }
+    .row .label {
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .row .math { font-size: 1.15rem; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+    .row.answer { background: var(--field); box-shadow: var(--pill); }
+    .row.answer .math { font-size: 1.35rem; }
+    .error { text-align: center; color: var(--error); font-size: 0.95rem; font-weight: 500; animation: rise 0.3s both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+    @media (max-width: 480px) {
+      .row { grid-template-columns: 1fr; gap: 4px; }
+    }
+
+    .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 18px; }
+    .chip {
+      width: auto; height: auto; border-radius: 999px; padding: 7px 13px;
+      font-size: 0.82rem; font-weight: 500; color: var(--muted);
+    }
+    .chip:hover { color: var(--text); transform: scale(1.05); }
 
     @media (prefers-reduced-motion: reduce) {
       .watermark div { animation: none; }
+      .row, .error { animation: none; }
     }
   </style>
 </head>
@@ -192,7 +230,7 @@
         <button type="submit" aria-label="Solve">=</button>
       </form>
       <div class="result" id="result" aria-live="polite"></div>
-      <p class="hint">try 12 * (3 + 4), sqrt(144), 2x + 3 = 11 or x^2 = 16</p>
+      <div class="chips" id="chips"></div>
     </div>
   </main>
 
@@ -274,7 +312,9 @@
       drop.classList.add('liquid');
       document.getElementById('dropMap').setAttribute('href', lensMap(DROP));
       buildEdgeMap();
-      new ResizeObserver(buildEdgeMap).observe(bubble);
+      // rebuilding the map is costly, so wait for the size to settle
+      let resizing;
+      new ResizeObserver(() => { clearTimeout(resizing); resizing = setTimeout(buildEdgeMap, 120); }).observe(bubble);
     }
 
     const target = { x: innerWidth / 2, y: innerHeight / 2, active: 0 };
@@ -331,65 +371,67 @@
     const form = document.getElementById('form');
     const input = document.getElementById('problem');
     const result = document.getElementById('result');
+    const chips = document.getElementById('chips');
 
-    const fmt = (v) => math.format(v, { precision: 12 });
-
-    // numeric root finding for one-variable equations like "2x + 3 = 11"
-    function solveEquation(text) {
-      const [lhs, rhs] = text.split('=');
-      const node = math.parse(`(${lhs}) - (${rhs})`);
-      const vars = [...new Set(
-        node.filter((n) => n.isSymbolNode && !(n.name in math)).map((n) => n.name)
-      )];
-      if (vars.length !== 1) throw new Error('Use exactly one variable, like x');
-      const name = vars[0];
-      const f = node.compile();
-      const at = (x) => {
-        const y = f.evaluate({ [name]: x });
-        return typeof y === 'number' ? y : NaN;
-      };
-
-      const xs = [];
-      for (let i = -2000; i <= 2000; i++) xs.push(i / 20);
-      for (let i = 101; i <= 10000; i++) { xs.push(i); xs.push(-i); }
-      xs.sort((a, b) => a - b);
-
-      const roots = [];
-      const add = (r) => {
-        if (Math.abs(at(r)) > 1e-6) return;
-        r = Math.round(r * 1e10) / 1e10;
-        if (!roots.some((s) => Math.abs(s - r) < 1e-7)) roots.push(r);
-      };
-      for (let i = 0; i < xs.length - 1; i++) {
-        let a = xs[i], b = xs[i + 1], fa = at(a), fb = at(b);
-        if (fa === 0) { add(a); continue; }
-        if (!isFinite(fa) || !isFinite(fb) || fa * fb > 0) continue;
-        for (let k = 0; k < 80; k++) {
-          const m = (a + b) / 2, fm = at(m);
-          if (fa * fm <= 0) { b = m; } else { a = m; fa = fm; }
-        }
-        add((a + b) / 2);
-      }
-      if (!roots.length) throw new Error('No real solution found');
-      return roots.map((r) => `${name} = ${fmt(r)}`).join(',  ');
+    function texInto(el, tex) {
+      if (window.katex) katex.render(tex, el, { throwOnError: false });
+      else el.textContent = tex;
     }
 
+    function show(text, { quiet = false } = {}) {
+      result.innerHTML = '';
+      if (!text.trim()) return;
+      let out;
+      try {
+        out = solveProblem(text);
+      } catch (err) {
+        // while typing, half-finished input just clears the answer
+        if (quiet) return;
+        const p = document.createElement('div');
+        p.className = 'error';
+        p.textContent = `Couldn't solve that: ${err.message}`;
+        result.append(p);
+        return;
+      }
+      const problem = document.createElement('div');
+      problem.className = 'problem';
+      texInto(problem, out.problem);
+      result.append(problem);
+      out.rows.forEach((r, i) => {
+        const row = document.createElement('div');
+        const answer = /^(Answer|Solution|Root|Check|Complex \w)/.test(r.label);
+        row.className = answer ? 'row answer' : 'row';
+        row.style.animationDelay = `${i * 60}ms`;
+        const label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = r.label;
+        const m = document.createElement('span');
+        m.className = 'math';
+        texInto(m, r.tex);
+        row.append(label, m);
+        result.append(row);
+      });
+    }
+
+    let typing;
+    input.addEventListener('input', () => {
+      clearTimeout(typing);
+      typing = setTimeout(() => show(input.value, { quiet: true }), 220);
+    });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const text = input.value.trim();
-      result.className = 'result';
-      if (!text) { result.textContent = ''; return; }
-      try {
-        const eqCount = (text.match(/=/g) || []).length;
-        if (eqCount > 1) throw new Error('Only one = sign, please');
-        result.textContent = eqCount === 1
-          ? solveEquation(text)
-          : `= ${fmt(math.evaluate(text))}`;
-      } catch (err) {
-        result.className = 'result error';
-        result.textContent = `Couldn't solve that: ${err.message}`;
-      }
+      clearTimeout(typing);
+      show(input.value);
     });
+
+    for (const ex of ['x^2 + 6x + 9', '2x + 3 = 11', 'x^2 = -4', 'x^3 - 6x^2 + 11x = 6', 'sqrt(2) * sqrt(8)', 'sin(x) = 0.5']) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = ex;
+      b.addEventListener('click', () => { input.value = ex; show(ex); input.focus(); });
+      chips.append(b);
+    }
   </script>
 </body>
 </html>
