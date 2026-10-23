@@ -7,30 +7,28 @@
   <script src="https://cdn.jsdelivr.net/npm/mathjs@13.2.0/lib/browser/math.js"></script>
   <style>
     :root {
-      --bg: #0d0b1f;
-      --blob-1: #7c3aed;
-      --blob-2: #06b6d4;
-      --blob-3: #ec4899;
+      --bg: #0b0b10;
       --text: #ffffff;
-      --muted: rgba(255, 255, 255, 0.65);
-      --watermark: rgba(255, 255, 255, 0.06);
-      --glass: rgba(255, 255, 255, 0.10);
-      --glass-border: rgba(255, 255, 255, 0.25);
-      --glass-strong: rgba(255, 255, 255, 0.18);
+      --muted: rgba(255, 255, 255, 0.55);
+      --watermark: rgba(255, 255, 255, 0.13);
+      --glass: rgba(255, 255, 255, 0.05);
+      --glow: rgba(255, 255, 255, 0.10);
+      --shine: rgba(255, 255, 255, 0.22);
+      --shadow: rgba(0, 0, 0, 0.45);
+      --field: rgba(255, 255, 255, 0.06);
       --error: #fda4af;
     }
     @media (prefers-color-scheme: light) {
       :root:not([data-theme="dark"]) {
-        --bg: #eef0ff;
-        --blob-1: #a78bfa;
-        --blob-2: #67e8f9;
-        --blob-3: #f9a8d4;
-        --text: #1a1530;
-        --muted: rgba(26, 21, 48, 0.6);
-        --watermark: rgba(26, 21, 48, 0.06);
-        --glass: rgba(255, 255, 255, 0.35);
-        --glass-border: rgba(255, 255, 255, 0.7);
-        --glass-strong: rgba(255, 255, 255, 0.55);
+        --bg: #f3f3f6;
+        --text: #111118;
+        --muted: rgba(17, 17, 24, 0.5);
+        --watermark: rgba(17, 17, 24, 0.12);
+        --glass: rgba(255, 255, 255, 0.25);
+        --glow: rgba(255, 255, 255, 0.55);
+        --shine: rgba(255, 255, 255, 0.7);
+        --shadow: rgba(30, 30, 60, 0.18);
+        --field: rgba(17, 17, 24, 0.07);
         --error: #be123c;
       }
     }
@@ -38,109 +36,224 @@
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body {
-      min-height: 100%;
       overflow-x: hidden;
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 48px 16px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
     }
 
-    /* colorful blobs that the glass blurs */
-    .blob {
-      position: fixed; border-radius: 50%; filter: blur(60px); opacity: 0.7; z-index: -2;
-      animation: float 18s ease-in-out infinite alternate;
-    }
-    .blob.b1 { width: 420px; height: 420px; background: var(--blob-1); top: -80px; left: -100px; }
-    .blob.b2 { width: 360px; height: 360px; background: var(--blob-2); bottom: -60px; right: -80px; animation-delay: -6s; }
-    .blob.b3 { width: 280px; height: 280px; background: var(--blob-3); top: 45%; left: 55%; animation-delay: -12s; }
-    @keyframes float {
-      to { transform: translate(60px, -40px) scale(1.15); }
-    }
-
-    /* "higgsfield prompt" everywhere */
+    /* "higgsfield prompt" everywhere, for the glass to bend */
     .watermark {
       position: fixed; inset: -50%; z-index: -1; pointer-events: none; user-select: none;
-      transform: rotate(-18deg);
-      display: flex; flex-direction: column; gap: 18px;
-      font-size: 28px; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap;
+      transform: rotate(-14deg);
+      display: flex; flex-direction: column; gap: 14px;
+      font-size: 34px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap;
       color: var(--watermark);
     }
-    .watermark div { animation: slide 40s linear infinite; }
+    .watermark div { animation: slide 60s linear infinite; }
     .watermark div:nth-child(even) { animation-direction: reverse; }
     @keyframes slide { to { transform: translateX(-25%); } }
 
-    h1 {
-      font-size: clamp(2.2rem, 9vw, 4.5rem); font-weight: 700; margin: 0 0 28px;
-      text-align: center; letter-spacing: -0.02em;
-    }
-
+    /* the one bubble */
+    .bubble { position: relative; width: 100%; max-width: 560px; }
     .glass {
-      width: 100%; max-width: 560px;
+      position: absolute; inset: 0; border-radius: 44px;
       background: var(--glass);
-      border: 1px solid var(--glass-border);
-      border-radius: 24px;
-      backdrop-filter: blur(20px) saturate(160%);
-      -webkit-backdrop-filter: blur(20px) saturate(160%);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-      padding: 20px;
+      backdrop-filter: blur(14px) saturate(170%);
+      -webkit-backdrop-filter: blur(14px) saturate(170%);
+      box-shadow:
+        0 24px 70px var(--shadow),
+        inset 0 0 28px var(--glow);
+      will-change: transform;
+    }
+    .glass.liquid { backdrop-filter: blur(2.5px) url(#liquid) saturate(170%); }
+    .glass::after {
+      content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      background: radial-gradient(circle 220px at var(--hx, 30%) var(--hy, 0%), var(--shine), transparent 70%);
+      opacity: var(--shine-o, 0.6);
+      mix-blend-mode: soft-light;
     }
 
-    form { display: flex; gap: 10px; }
+    .content { position: relative; padding: 34px 28px 26px; text-align: center; }
+    h1 {
+      font-size: clamp(2rem, 8vw, 3.2rem); font-weight: 700; letter-spacing: -0.03em;
+      margin: 0 0 22px;
+    }
+    form { display: flex; gap: 8px; }
     input {
       flex: 1; min-width: 0;
-      font: inherit; font-size: 1.15rem; color: var(--text);
-      background: var(--glass-strong);
-      border: 1px solid var(--glass-border); border-radius: 14px;
-      padding: 14px 16px; outline: none;
+      font: inherit; font-size: 1.15rem; color: var(--text); text-align: center;
+      background: var(--field); border: 0; border-radius: 999px;
+      box-shadow: inset 0 0 18px var(--glow);
+      padding: 15px 20px; outline: none;
     }
     input::placeholder { color: var(--muted); }
-    input:focus { border-color: var(--text); }
+    input:focus { box-shadow: inset 0 0 22px var(--shine); }
     button {
-      font: inherit; font-weight: 600; color: var(--text); cursor: pointer;
-      background: var(--glass-strong);
-      border: 1px solid var(--glass-border); border-radius: 14px;
-      padding: 0 20px;
+      flex: none; width: 52px; height: 52px; border: 0; border-radius: 50%; cursor: pointer;
+      font-size: 1.3rem; font-weight: 600; color: var(--text);
+      background: var(--field); box-shadow: inset 0 0 18px var(--glow);
+      transition: transform 0.2s;
     }
-    button:hover { background: var(--glass-border); }
-
-    .result {
-      min-height: 1.5em; margin-top: 16px; padding: 0 4px;
-      font-size: 1.4rem; font-weight: 600; word-break: break-word;
-    }
+    button:hover { transform: scale(1.08); }
+    .result { margin-top: 18px; font-size: 1.4rem; font-weight: 600; word-break: break-word; }
     .result:empty { display: none; }
     .result.error { color: var(--error); font-size: 1rem; font-weight: 500; }
-    .hint { margin: 14px 4px 0; font-size: 0.85rem; color: var(--muted); }
+    .hint { margin: 16px 0 0; font-size: 0.8rem; color: var(--muted); }
 
-    footer { margin-top: 28px; font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+    @media (prefers-reduced-motion: reduce) {
+      .watermark div { animation: none; }
+    }
   </style>
 </head>
 <body>
-  <div class="blob b1"></div>
-  <div class="blob b2"></div>
-  <div class="blob b3"></div>
   <div class="watermark" id="watermark" aria-hidden="true"></div>
 
-  <h1>higgsfield prompt</h1>
+  <!-- refraction: edge lens + a bulge that follows the pointer (Chromium only) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="liquid" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feImage id="edgeMap" x="0" y="0" preserveAspectRatio="none" result="edge"/>
+      <feDisplacementMap in="SourceGraphic" in2="edge" scale="36" xChannelSelector="R" yChannelSelector="G" result="refracted"/>
+      <feFlood flood-color="rgb(128,128,128)" result="neutral"/>
+      <feImage id="bulgeMap" preserveAspectRatio="none" result="bulgeRaw"/>
+      <feComposite in="bulgeRaw" in2="neutral" operator="over" result="bulge"/>
+      <feDisplacementMap id="bulgeDisp" in="refracted" in2="bulge" scale="0" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
 
-  <main class="glass">
-    <form id="form" autocomplete="off">
-      <input id="problem" placeholder="enter your math problem" aria-label="Math problem" autofocus>
-      <button type="submit">Solve</button>
-    </form>
-    <div class="result" id="result" aria-live="polite"></div>
-    <p class="hint">Try <code>12 * (3 + 4)</code>, <code>sqrt(144)</code>, <code>2x + 3 = 11</code> or <code>x^2 = 16</code></p>
+  <main class="bubble" id="bubble">
+    <div class="glass" id="glass"></div>
+    <div class="content">
+      <h1>higgsfield prompt</h1>
+      <form id="form" autocomplete="off">
+        <input id="problem" placeholder="enter your math problem" aria-label="Math problem" autofocus>
+        <button type="submit" aria-label="Solve">=</button>
+      </form>
+      <div class="result" id="result" aria-live="polite"></div>
+      <p class="hint">try 12 * (3 + 4), sqrt(144), 2x + 3 = 11 or x^2 = 16</p>
+    </div>
   </main>
-
-  <footer>higgsfield prompt</footer>
 
   <script>
     // fill the background with "higgsfield prompt"
-    const line = 'higgsfield prompt · '.repeat(30);
+    const line = 'higgsfield prompt · '.repeat(24);
     document.getElementById('watermark').innerHTML =
-      Array.from({ length: 60 }, () => `<div>${line}</div>`).join('');
+      Array.from({ length: 50 }, () => `<div>${line}</div>`).join('');
 
+    // ---------- liquid glass ----------
+    const bubble = document.getElementById('bubble');
+    const glass = document.getElementById('glass');
+    const filter = document.getElementById('liquid');
+    const edgeMap = document.getElementById('edgeMap');
+    const bulgeMap = document.getElementById('bulgeMap');
+    const bulgeDisp = document.getElementById('bulgeDisp');
+    const RADIUS = 44, BAND = 34, BULGE = 90;
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // displacement maps encode an x offset in red and a y offset in green (128 = none)
+    function makeMap(w, h, offsetAt) {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      const img = ctx.createImageData(w, h);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const [dx, dy] = offsetAt(x + 0.5, y + 0.5);
+          const i = (y * w + x) * 4;
+          img.data[i] = 128 + 127 * dx;
+          img.data[i + 1] = 128 + 127 * dy;
+          img.data[i + 2] = 128;
+          img.data[i + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      return c.toDataURL();
+    }
+
+    // near the rounded edge, sample further inside so the backdrop bends like a lens
+    function buildEdgeMap() {
+      const w = Math.round(bubble.offsetWidth), h = Math.round(bubble.offsetHeight);
+      const r = Math.min(RADIUS, w / 2, h / 2);
+      const sdf = (x, y) => {
+        const qx = Math.abs(x - w / 2) - (w / 2 - r), qy = Math.abs(y - h / 2) - (h / 2 - r);
+        return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+      };
+      const url = makeMap(w, h, (x, y) => {
+        const d = -sdf(x, y);
+        if (d >= BAND) return [0, 0];
+        const nx = sdf(x + 1, y) - sdf(x - 1, y), ny = sdf(x, y + 1) - sdf(x, y - 1);
+        const len = Math.hypot(nx, ny) || 1;
+        const k = Math.pow(1 - Math.max(d, 0) / BAND, 2);
+        return [-(nx / len) * k, -(ny / len) * k];
+      });
+      for (const el of [filter, edgeMap]) {
+        el.setAttribute('width', w); el.setAttribute('height', h);
+      }
+      filter.setAttribute('x', 0); filter.setAttribute('y', 0);
+      edgeMap.setAttribute('href', url);
+    }
+
+    // a magnifying bulge, moved under the pointer every frame
+    bulgeMap.setAttribute('width', BULGE * 2);
+    bulgeMap.setAttribute('height', BULGE * 2);
+    bulgeMap.setAttribute('href', makeMap(BULGE * 2, BULGE * 2, (x, y) => {
+      const dx = (x - BULGE) / BULGE, dy = (y - BULGE) / BULGE, rr = dx * dx + dy * dy;
+      if (rr >= 1) return [0, 0];
+      const k = Math.pow(1 - rr, 1.5);
+      return [-dx * k, -dy * k];
+    }));
+
+    // backdrop-filter: url() is only honored by Chromium; elsewhere keep plain frosted glass
+    const liquid = !!window.chrome;
+    if (liquid) {
+      glass.classList.add('liquid');
+      buildEdgeMap();
+      new ResizeObserver(buildEdgeMap).observe(bubble);
+    }
+
+    const target = { x: innerWidth / 2, y: innerHeight / 2, active: 0 };
+    const cur = { x: target.x, y: target.y, active: 0 };
+    addEventListener('pointermove', (e) => { target.x = e.clientX; target.y = e.clientY; target.active = 1; });
+    document.addEventListener('pointerleave', () => { target.active = 0; });
+
+    function frame() {
+      cur.x += (target.x - cur.x) * 0.14;
+      cur.y += (target.y - cur.y) * 0.14;
+      cur.active += (target.active - cur.active) * 0.08;
+
+      const rect = bubble.getBoundingClientRect();
+      const lx = cur.x - rect.left, ly = cur.y - rect.top;
+      const dx = lx - rect.width / 2, dy = ly - rect.height / 2;
+      // 0 at the center, 1 at the edge, >1 outside
+      const n = Math.hypot(dx / (rect.width / 2), dy / (rect.height / 2));
+      // strongest just around the edge, fading out as the pointer moves away
+      const pull = cur.active * (n < 1 ? n : Math.exp(-(n - 1) * 1.6));
+      const inside = cur.active * Math.max(0, Math.min(1, (1.05 - n) * 4));
+
+      if (!reduceMotion) {
+        const a = Math.atan2(dy, dx);
+        const s = 0.045 * pull;
+        const tx = Math.max(-14, Math.min(14, dx * 0.04 * pull));
+        const ty = Math.max(-14, Math.min(14, dy * 0.04 * pull));
+        glass.style.transform =
+          `translate(${tx}px, ${ty}px) rotate(${a}rad) scale(${1 + s}, ${1 - s * 0.6}) rotate(${-a}rad)`;
+      }
+      glass.style.setProperty('--hx', `${lx}px`);
+      glass.style.setProperty('--hy', `${ly}px`);
+      glass.style.setProperty('--shine-o', (0.45 + 0.55 * inside).toFixed(3));
+
+      if (liquid) {
+        bulgeMap.setAttribute('x', lx - BULGE);
+        bulgeMap.setAttribute('y', ly - BULGE);
+        bulgeDisp.setAttribute('scale', (46 * inside).toFixed(1));
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    // ---------- math ----------
     const form = document.getElementById('form');
     const input = document.getElementById('problem');
     const result = document.getElementById('result');
